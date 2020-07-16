@@ -102,8 +102,8 @@ impl Config {
                             .enumerate()
                             .find(|(_, param)| *param == &String::from("-e"));
             
-            let err_noargs = "No argument for -e learning rate flag";
-            let err_unvalid_args = "Unvalid argument for -e learning rate flag";
+            let err_noargs = "No argument for -e epochs flag";
+            let err_unvalid_args = "Unvalid argument for -e epochs flag";
             
             match e_flag {
                 None => E_DEFAULT,
@@ -158,6 +158,7 @@ mod test_suite {
 
     #[test]
     fn test_config_input1 () {
+        //Check correct case 1
         let input = [
             String::from("perceptron"),
             String::from("test_data.csv"),
@@ -171,6 +172,74 @@ mod test_suite {
             epochs: 50,
             data_file: String::from("test_data.csv")
         });
+
+        assert_eq!(expected, crate::Config::new(&input));
+    }
+
+    #[test]
+    fn test_config_input2 () {
+        // check correct case with other order
+        let input = [
+            String::from("perceptron"),
+            String::from("test_data.csv"),
+            String::from("-e"),
+            String::from("50"),
+            String::from("-l"),
+            String::from("0.01")
+        ];
+        let expected: Result<crate::Config, &str> = Ok(crate::Config {
+            learning_rate: 0.01,
+            epochs: 50,
+            data_file: String::from("test_data.csv")
+        });
+
+        assert_eq!(expected, crate::Config::new(&input));
+    }
+
+    #[test]
+    fn test_config_input3 () {
+        // Check no arg error
+        let input = [
+            String::from("perceptron"),
+            String::from("test_data.csv"),
+            String::from("-e"),
+            String::from("50"),
+            String::from("0.01"),
+            String::from("-l"),
+        ];
+        let expected = Err("No argument for -l learning rate flag");
+
+        assert_eq!(expected, crate::Config::new(&input));
+    }
+
+    #[test]
+    fn test_config_input4 () {
+        // Check no file error
+        let input = [
+            String::from("perceptron"),
+            String::from("nofile.csv"),
+            String::from("-e"),
+            String::from("50"),
+            String::from("-l"),
+            String::from("0.01"),
+        ];
+        let expected = Err("Error openning training file: there's no such file");
+
+        assert_eq!(expected, crate::Config::new(&input));
+    }
+
+    #[test]
+    fn test_config_input5 () {
+        // Check unvalid learning rate range
+        let input = [
+            String::from("perceptron"),
+            String::from("test_data.csv"),
+            String::from("-e"),
+            String::from("50"),
+            String::from("-l"),
+            String::from("10.0"),
+        ];
+        let expected = Err("Learning rate -l argument should be in range [0,1]");
 
         assert_eq!(expected, crate::Config::new(&input));
     }
