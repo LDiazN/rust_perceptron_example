@@ -4,6 +4,10 @@ version = "0.1.0"
 authors = ["Luis Diaz <ldiazn98@gmail.com>"]
 edition = "2018"
 
+[lib]
+path = "src/lib.rs"
+name = "perceptron"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
