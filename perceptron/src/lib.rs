@@ -263,7 +263,7 @@ fn parse(input: String, percentage: f64) -> Result<TrainSet, &'static str> {
 fn train (ts: &TrainSet, epochs: u8, learning_rate: f64) -> network::Network {
 
     //Create weight matrix
-    let mut weights = Array::from_shape_fn((785,10), |_| rand::random(); 
+    let mut weights = Array::from_shape_fn((785,10), |_| rand::random()); 
 
     // Compute desired output matrix
     let desired_output = Array::from_shape_fn((ts.desired_result.len(), 10), |(i,j)| {
