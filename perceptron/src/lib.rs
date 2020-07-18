@@ -1,5 +1,6 @@
 mod perceptron;
 mod test_suite;
+mod network;
 use ndarray::Array;
 use std::fs;
 // DEFAULT VALUES //
@@ -142,8 +143,10 @@ pub fn run(config: config::Config) -> Result<(),&'static str> {
     //Parse the input
     let data = parse(input)?;
 
-    println!("{:?}", data);
+    // Train the model 
+    let network = train(&data, config.epochs, config.learning_rate);
 
+    println!("{:?}", network);
 
     Ok(())
 }
@@ -155,6 +158,7 @@ struct TrainSet {
     test_data: Vec<(util::NVector, f64)>
 }
 
+/// Function to parse a csv from a string into a TrainSet struct
 fn parse(input: String) -> Result<TrainSet, &'static str> {
     //Parse the string into a matrix of numbers
     let input: Vec<Vec<f64>> = input  
@@ -173,7 +177,7 @@ fn parse(input: String) -> Result<TrainSet, &'static str> {
             ).collect();
     
     //Compute training set
-    let mut n_entries = (input.len() as f64 * PERCENTAGE_TO_TEST/100.) as usize;
+    let n_entries = (input.len() as f64 * PERCENTAGE_TO_TEST/100.) as usize;
     let mut input_it = input.iter();
     let mut count = 0;
     let mut test_data = Vec::with_capacity(n_entries);
@@ -209,3 +213,50 @@ fn parse(input: String) -> Result<TrainSet, &'static str> {
         } 
     )
 }
+
+fn train (ts: &TrainSet, epochs: u8, learning_rate: f64) -> network::Network {
+    //Create weight matrix
+    let mut weights = Array::from_shape_fn((785,10), |_| 0.); //@TODO la matriz tiene que inicializar con numeros random
+    let desired_output = Array::from_shape_fn((ts.desired_result.len(), 10), |(i,j)| {
+        if ts.desired_result[i] == (j as f64) {
+            1.
+        }
+        else {
+            -1.
+        }
+    });
+
+    for _ in 0..epochs {
+        let output = ts.input_data
+                        .dot(&weights)
+                        .map(| f | f.signum());
+        
+        for (j, col) in (0..10).map(| j | (j,output.column(j)) ) {
+            for (i,val) in col.iter().enumerate() {
+                let factor = learning_rate * (desired_output[[i,j]] - val);
+                if factor != 0. {
+                    weights
+                        .column_mut(j)
+                        .iter_mut()
+                        .zip(ts.input_data.row(i))
+                        .for_each(|(w,inp)| *w = *w + factor * inp )
+                }
+            }
+        }
+    } 
+
+    let weights: Vec<perceptron::Perceptron> = 
+    (0..10)
+        .map(|i| {
+            perceptron::Perceptron::from_vec(   
+                weights
+                    .slice(ndarray::s![..784,i])
+                    .to_vec()
+                , weights[[784, i]])
+        })
+        .collect();
+    
+    
+
+    network::Network::new(weights)
+} 
