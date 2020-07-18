@@ -1,4 +1,4 @@
-use crate::*;
+use crate::config;
 
 #[test]
 fn test_perceptron_computation(){
@@ -19,15 +19,18 @@ fn test_config_input1 () {
         String::from("-l"),
         String::from("0.01"),
         String::from("-e"),
-        String::from("50")
+        String::from("50"),
+        String::from("-p"),
+        String::from("20")
     ];
-    let expected: Result<crate::Config, &str> = Ok(crate::Config {
+    let expected: Result<config::Config, &str> = Ok(config::Config {
         learning_rate: 0.01,
         epochs: 50,
+        percentage: 20.,
         data_file: String::from("test_data.csv")
     });
 
-    assert_eq!(expected, crate::Config::new(&input));
+    assert_eq!(expected, config::Config::new(&input));
 }
 
 #[test]
@@ -39,15 +42,18 @@ fn test_config_input2 () {
         String::from("-e"),
         String::from("50"),
         String::from("-l"),
-        String::from("0.01")
+        String::from("0.01"),
+        String::from("-p"),
+        String::from("20")
     ];
-    let expected: Result<crate::Config, &str> = Ok(crate::Config {
+    let expected: Result<config::Config, &str> = Ok(config::Config {
         learning_rate: 0.01,
         epochs: 50,
+        percentage: 20.,
         data_file: String::from("test_data.csv")
     });
 
-    assert_eq!(expected, crate::Config::new(&input));
+    assert_eq!(expected, config::Config::new(&input));
 }
 
 #[test]
@@ -63,7 +69,7 @@ fn test_config_input3 () {
     ];
     let expected = Err("No argument for -l learning rate flag");
 
-    assert_eq!(expected, crate::Config::new(&input));
+    assert_eq!(expected, config::Config::new(&input));
 }
 
 #[test]
@@ -79,7 +85,7 @@ fn test_config_input4 () {
     ];
     let expected = Err("Error openning training file: there's no such file");
 
-    assert_eq!(expected, crate::Config::new(&input));
+    assert_eq!(expected, config::Config::new(&input));
 }
 
 #[test]
@@ -95,5 +101,5 @@ fn test_config_input5 () {
     ];
     let expected = Err("Learning rate -l argument should be in range [0,1]");
 
-    assert_eq!(expected, crate::Config::new(&input));
+    assert_eq!(expected, config::Config::new(&input));
 }

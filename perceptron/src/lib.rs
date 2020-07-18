@@ -12,9 +12,9 @@ const L_DEFAULT: f64 = 0.01;
 const E_DEFAULT: u8 = 50;
 
 // Default ammount of data to reserve to test
-const PERCENTAGE_TO_TEST: f64 = 20.;
+const P_DEFAULT: f64 = 20.;
 
-/// Helpful module to import some utility types
+/// Helpful module to export some utility types
 pub mod util {
     /////////////////////////////
     // TYPES
@@ -34,9 +34,10 @@ pub mod config {
     /// Simple struct to manage configuration data
     #[derive(Debug, PartialEq)]
     pub struct Config {
-        pub learning_rate: f64,
+        pub learning_rate: f64, 
         pub data_file: String,
-        pub epochs: u8
+        pub epochs: u8,
+        pub percentage: f64, // Percentage of sample inputs to use as test cases
     }
     
     
@@ -45,8 +46,9 @@ pub mod config {
         ///     usage: 
         ///         perceptron filename [options]
         ///     where options:
-        ///         -l arg: specify the learning rate 'arg' (should be a float in [0,1])
+        ///         -l arg: Specify the learning rate 'arg' (should be a float in [0,1])
         ///         -e arg: Specify the number of epochs to train (should be an int in [0,255]) 
+        ///         -p arg: Specify the percentage of test to use as test from the input file
         pub fn new(params: &[String]) -> Result<Config, &'static str> {
     
             let learning_rate = {
@@ -103,6 +105,30 @@ pub mod config {
                 }
                 
             };
+
+            let percentage = {
+                let p_flag = params
+                                .iter()
+                                .enumerate()
+                                .find(|(_, param)| *param == &String::from("pe"));
+                
+                let err_noargs = "No argument for -e percentage flag";
+                let err_unvalid_args = "Unvalid argument for -p percentage flag";
+                
+                match p_flag {
+                    None => crate::P_DEFAULT,
+                    Some((i,_)) => if i + 1 == params.len() {
+                        return Err(err_noargs);
+                    } 
+                    else {
+                        match params[i+1].parse::<f64>() {
+                            Err(_)  => return Err(err_unvalid_args),
+                            Ok(f)   => if f > 100. || f < 0. { return Err(err_unvalid_args) } else { f }
+                        }
+                    }
+                }
+                
+            };
     
             let data_file = {
                 let err_no_filename_provided = "No training data filename provided";
@@ -123,12 +149,21 @@ pub mod config {
                 Config {
                     learning_rate,
                     data_file,
-                    epochs
+                    epochs,
+                    percentage
                 }
             )  
             
         }    
     }
+}
+
+/// Simple struct to represent a training set with its desired output
+#[derive(Debug)]
+struct TrainSet {
+    input_data: util::Matrix,
+    desired_result: util::NVector,
+    test_data: Vec<(util::NVector, f64)>
 }
 
 // Function to perform the data loading, parsing, training and result comparision
@@ -146,7 +181,7 @@ pub fn run(config: config::Config) -> Result<(),&'static str> {
     };
 
     //Parse the input
-    let data = parse(input)?;
+    let data = parse(input, config.percentage)?;
     
     println!("Data loaded in {} ms", overall.elapsed().as_millis());
     println!("Trainning...");
@@ -166,16 +201,10 @@ pub fn run(config: config::Config) -> Result<(),&'static str> {
 
     Ok(())
 }
-/// Simple struct to represent a training set with its desired output
-#[derive(Debug)]
-struct TrainSet {
-    input_data: util::Matrix,
-    desired_result: util::NVector,
-    test_data: Vec<(util::NVector, f64)>
-}
 
-/// Function to parse a csv from a string into a TrainSet struct
-fn parse(input: String) -> Result<TrainSet, &'static str> {
+/// Function to parse a csv from a string into a TrainSet struct with
+/// a portion of the input samples as the test cases
+fn parse(input: String, percentage: f64) -> Result<TrainSet, &'static str> {
     //Parse the string into a matrix of numbers
     let input: Vec<Vec<f64>> = input  
         .split_ascii_whitespace() //Split lines
@@ -193,7 +222,7 @@ fn parse(input: String) -> Result<TrainSet, &'static str> {
             ).collect();
     
     //Compute training set
-    let n_entries = (input.len() as f64 * PERCENTAGE_TO_TEST/100.) as usize;
+    let n_entries = (input.len() as f64 * percentage/100.) as usize;
     let mut input_it = input.iter();
     let mut count = 0;
     let mut test_data = Vec::with_capacity(n_entries);
@@ -232,8 +261,11 @@ fn parse(input: String) -> Result<TrainSet, &'static str> {
 
 /// Function to train a network based in a TrainSet, for a given number of epochs and learning_rate
 fn train (ts: &TrainSet, epochs: u8, learning_rate: f64) -> network::Network {
+
     //Create weight matrix
-    let mut weights = Array::from_shape_fn((785,10), |_| rand::random()); //@TODO la matriz tiene que inicializar con numeros random
+    let mut weights = Array::from_shape_fn((785,10), |_| rand::random(); 
+
+    // Compute desired output matrix
     let desired_output = Array::from_shape_fn((ts.desired_result.len(), 10), |(i,j)| {
         if ts.desired_result[i] == (j as f64) {
             1.
@@ -243,11 +275,14 @@ fn train (ts: &TrainSet, epochs: u8, learning_rate: f64) -> network::Network {
         }
     });
 
+    // Train for the given epochs
     for _ in 0..epochs {
+        // Compute output for the network with a matrix multiplication
         let output = ts.input_data
                         .dot(&weights)
                         .map(| f | f.signum());
         
+        // Compute the new weights
         for (j, col) in (0..10).map(| j | (j,output.column(j)) ) {
             for (i,val) in col.iter().enumerate() {
                 let factor = learning_rate * (desired_output[[i,j]] - val);
@@ -262,24 +297,26 @@ fn train (ts: &TrainSet, epochs: u8, learning_rate: f64) -> network::Network {
         }
     } 
 
+    // Create new network
     let weights: Vec<perceptron::Perceptron> = 
     (0..10)
         .map(|i| {
             perceptron::Perceptron::from_vec(   
                 weights
                     .slice(ndarray::s![..784,i])
-                    .to_vec()
-                , weights[[784, i]])
+                    .to_vec()           // get the weight vector
+                , weights[[784, i]])    // get the bias
         })
         .collect();
     
     network::Network::new(weights)
-} 
+}
+
 /// Test a trained network with a set of test and return the percentage of hits
 fn test_network(network: &network::Network, test_data: &Vec<(util::NVector, f64)>) -> f64 {
-
+    // Compute the percentage of test passed
     100. * test_data
-        .iter()
+        .iter()                                     
         .map(|(v,y)| if (network.predict(v).unwrap_or(99) as f64) == *y { 1. } else { 0. })
         .sum::<f64>()/(test_data.len() as f64)
 }

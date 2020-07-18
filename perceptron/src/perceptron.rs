@@ -1,3 +1,7 @@
+/*
+    This module contains the basic structure of a single perceptron and 
+    the implementation of its related functions.
+*/
 
 use crate::util;
 
