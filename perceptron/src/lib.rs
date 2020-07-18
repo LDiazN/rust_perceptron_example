@@ -133,8 +133,13 @@ pub mod config {
 
 // Function to perform the data loading, parsing, training and result comparision
 pub fn run(config: config::Config) -> Result<(),&'static str> {
+    use std::time; //required to measure duration
 
     let err_openning_file = "Could not open provided file";
+    println!("Reading CSV file...");
+    //Overal time
+    let overall = std::time::Instant::now();
+
     let input = match fs::read_to_string(config.data_file) {
         Err(_) => return Err(err_openning_file),
         Ok(s)   => s
@@ -142,11 +147,22 @@ pub fn run(config: config::Config) -> Result<(),&'static str> {
 
     //Parse the input
     let data = parse(input)?;
-
+    
+    println!("Data loaded in {} ms", overall.elapsed().as_millis());
+    println!("Trainning...");
+    let training_time = time::Instant::now();
     // Train the model 
     let network = train(&data, config.epochs, config.learning_rate);
 
-    println!("{:?}", network);
+    println!("Trainning ended in {} ms", training_time.elapsed().as_millis());
+    
+    println!("Testing...");
+    let testing_time = time::Instant::now();
+
+    //Test the network
+    println!("{}% of test passed", test_network(&network, &data.test_data));
+    println!("Testing ended in {} ms", testing_time.elapsed().as_millis());
+    println!("Total time elapsed: {}", overall.elapsed().as_millis());
 
     Ok(())
 }
@@ -214,9 +230,10 @@ fn parse(input: String) -> Result<TrainSet, &'static str> {
     )
 }
 
+/// Function to train a network based in a TrainSet, for a given number of epochs and learning_rate
 fn train (ts: &TrainSet, epochs: u8, learning_rate: f64) -> network::Network {
     //Create weight matrix
-    let mut weights = Array::from_shape_fn((785,10), |_| 0.); //@TODO la matriz tiene que inicializar con numeros random
+    let mut weights = Array::from_shape_fn((785,10), |_| rand::random()); //@TODO la matriz tiene que inicializar con numeros random
     let desired_output = Array::from_shape_fn((ts.desired_result.len(), 10), |(i,j)| {
         if ts.desired_result[i] == (j as f64) {
             1.
@@ -256,7 +273,13 @@ fn train (ts: &TrainSet, epochs: u8, learning_rate: f64) -> network::Network {
         })
         .collect();
     
-    
-
     network::Network::new(weights)
 } 
+/// Test a trained network with a set of test and return the percentage of hits
+fn test_network(network: &network::Network, test_data: &Vec<(util::NVector, f64)>) -> f64 {
+
+    100. * test_data
+        .iter()
+        .map(|(v,y)| if (network.predict(v).unwrap_or(99) as f64) == *y { 1. } else { 0. })
+        .sum::<f64>()/(test_data.len() as f64)
+}

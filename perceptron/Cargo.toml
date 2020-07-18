@@ -12,3 +12,4 @@ name = "perceptron"
 
 [dependencies]
 ndarray = "0.13.1"
+rand = "0.7.3"
