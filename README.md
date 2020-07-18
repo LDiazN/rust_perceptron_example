@@ -31,3 +31,12 @@ You can run the program without args to get a help message with the following in
     
 The provided file should be in the MNIST data set format, each line corresponds to an input sample, the first number corresponds to the desired
 output, the rest of the numbers corresponds to the pixels in the image, every number is separated by commas
+
+# Obtained results
+These are some results we obtained with a portion of the MNIST data set. Every test used 50 epochs of training:
+
+| Learning rate | Precision |
+| ------------- |:---------:|
+| 0.001         |   75.65%  |
+| 0.01          |   77.9%   |
+| 0.1           |   76.6%   |
