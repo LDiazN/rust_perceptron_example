@@ -2,9 +2,10 @@
 use crate::util;
 
 /// Base structure for a single perceptron
+#[derive(Debug)]
 pub struct Perceptron {
-    weight: util::NVector,
-    bias: f64,
+    pub weight: util::NVector,
+    pub bias: f64,
 }
 
 impl Perceptron {
